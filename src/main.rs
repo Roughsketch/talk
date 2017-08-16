@@ -55,7 +55,7 @@ fn generate(data: &WordData) -> String {
         .collect::<Vec<String>>();
 
     let mut rng = rand::thread_rng();
-    let mut word = rand::thread_rng().choose(&starts).unwrap();
+    let mut word = rng.choose(&starts).unwrap();
     let mut output = Vec::new();
     
     loop {
