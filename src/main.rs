@@ -15,6 +15,7 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io;
 use std::io::Read;
+use std::path::Path;
 
 mod bench;
 mod ngram;
@@ -37,8 +38,11 @@ enum Error {
 type Result<T> = std::result::Result<T, Error>;
 
 fn main() {
-    let ngrams = ngram::generate_tuples(std::path::Path::new("test"));
-    println!("Test:\n{:?}", ngrams);
+    let book_data = read_books(Path::new("data/sentences"));
+    let books = book_data
+        .iter()
+        .map(|(ref book, ref content)| ngram::BookNgram::new(&content, book))
+        .collect::<Vec<ngram::BookNgram>>();
 
     let mut input = String::new();
     io::stdin().read_line(&mut input);
@@ -54,6 +58,35 @@ fn main() {
     loop {
         println!("{}", generate(&data));
     }
+}
+
+fn read_file(path: &Path) -> String {
+    let mut file = File::open(path).expect(&format!("No such file: {:?}", path));
+    let mut content = String::new();
+
+    let _ = file.read_to_string(&mut content);
+    content.replace("\r", "")
+}
+
+fn read_books(path: &Path) -> HashMap<String, String> {
+    let mut books = HashMap::new();
+
+    let dir = path
+        .read_dir().unwrap()
+        .filter_map(|e| e.ok())
+        .filter(|e| e.metadata().is_ok())
+        .filter(|e| e.metadata().unwrap().is_file());
+
+    for file in dir {
+        let path = file.path();
+        let os = path.as_path().file_stem().unwrap();
+        let book = os.to_str().expect("Could not convert OsStr");
+        let content = read_file(&path);
+
+        books.insert(book.into(), content);
+    }
+
+    books
 }
 
 fn generate(data: &WordData) -> String {
