@@ -1,8 +1,3 @@
-use std::collections::HashMap;
-use std::fs::File;
-use std::io::Read;
-use std::path::Path;
-
 use ngrams::Ngrams;
 
 #[derive(Debug)]
@@ -14,13 +9,13 @@ pub struct NgramData<'a> {
 
 #[derive(Debug)]
 pub struct BookNgram<'a> {
-    book: String,
+    book: &'a str,
     data: Vec<NgramData<'a>>,
-    content: &'a String,
+    content: &'a str,
 }
 
 impl <'a> BookNgram<'a> {
-    pub fn new(content: &'a String, book: String) -> BookNgram<'a> {
+    pub fn new(content: &'a str, book: &'a str) -> BookNgram<'a> {
         let mut data = Vec::new();
 
         let lines = content
@@ -32,7 +27,6 @@ impl <'a> BookNgram<'a> {
             let iter = line.split_whitespace();
             let ngs = Ngrams::new(iter, 3)
                 .pad()
-                //.map(|v| v.iter().map(|s| s.to_string()).collect())
                 .collect::<Vec<Vec<&str>>>();
 
             for ng in ngs {

@@ -38,14 +38,11 @@ enum Error {
 type Result<T> = std::result::Result<T, Error>;
 
 fn main() {
-    let path = Path::new("test/Deltora Quest #1_ The Forests of Silience - Emily Rodda.sen");
-    let os = path.file_stem().unwrap();
-    let book = os.to_str().expect("Could not convert OsStr");
-
-    let content = read_file(path);
-    let books = ngram::BookNgram::new(&content, book.into());
-
-    println!("Test:\n{:?}", books);
+    let book_data = read_books(Path::new("data/sentences"));
+    let books = book_data
+        .iter()
+        .map(|(ref book, ref content)| ngram::BookNgram::new(&content, book))
+        .collect::<Vec<ngram::BookNgram>>();
 
     let mut input = String::new();
     io::stdin().read_line(&mut input);
@@ -69,6 +66,27 @@ fn read_file(path: &Path) -> String {
 
     let _ = file.read_to_string(&mut content);
     content.replace("\r", "")
+}
+
+fn read_books(path: &Path) -> HashMap<String, String> {
+    let mut books = HashMap::new();
+
+    let dir = path
+        .read_dir().unwrap()
+        .filter_map(|e| e.ok())
+        .filter(|e| e.metadata().is_ok())
+        .filter(|e| e.metadata().unwrap().is_file());
+
+    for file in dir {
+        let path = file.path();
+        let os = path.as_path().file_stem().unwrap();
+        let book = os.to_str().expect("Could not convert OsStr");
+        let content = read_file(&path);
+
+        books.insert(book.into(), content);
+    }
+
+    books
 }
 
 fn generate(data: &WordData) -> String {
