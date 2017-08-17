@@ -14,7 +14,7 @@ use rand::distributions::{Weighted, WeightedChoice, IndependentSample};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io;
-use std::io::Read;
+use std::io::{Read, Write};
 use std::path::Path;
 
 mod bench;
@@ -58,6 +58,12 @@ fn main() {
     loop {
         println!("{}", generate(&data));
     }
+}
+
+fn write_file(path: &Path, content: String) {
+    let mut file = File::create(path).expect(&format!("Could not make file: {:?}", path));
+
+    file.write(content.as_bytes());
 }
 
 fn read_file(path: &Path) -> String {
