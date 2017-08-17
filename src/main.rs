@@ -15,6 +15,7 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io;
 use std::io::Read;
+use std::path::Path;
 
 mod bench;
 mod ngram;
@@ -37,7 +38,8 @@ enum Error {
 type Result<T> = std::result::Result<T, Error>;
 
 fn main() {
-    let ngrams = ngram::generate_tuples(std::path::Path::new("test"));
+    let books = read_books(Path::new("test"));
+    let ngrams = ngram::generate_tuples(&books);
     println!("Test:\n{:?}", ngrams);
 
     let mut input = String::new();
@@ -54,6 +56,34 @@ fn main() {
     loop {
         println!("{}", generate(&data));
     }
+}
+
+fn read_books(path: &Path) -> HashMap<String, String> {
+    let books = HashMap::new();
+    let dir = path.read_dir().unwrap();
+
+    for entry in dir.filter_map(|e| e.ok()) {
+        let meta = match entry.metadata() {
+            Ok(meta) => meta,
+            Err(_) => continue,
+        };
+
+        if meta.is_file() {
+            let path = entry.path();
+            let os = path.as_path().file_stem().unwrap();
+            let book = os.to_str().expect("Could not convert OsStr");
+
+            let mut file = File::open(entry.path()).unwrap();
+            let mut contents = String::new();
+
+            let _ = file.read_to_string(&mut contents);
+            contents = contents.replace("\r", "");
+
+            books.insert(book.into(), contents);
+        }
+    }
+
+    books
 }
 
 fn generate(data: &WordData) -> String {
