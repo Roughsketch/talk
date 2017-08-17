@@ -1,13 +1,13 @@
 use ngrams::Ngrams;
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct NgramData<'a> {
     p_prev: &'a str,
     prev: &'a str,
     current: &'a str,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct BookNgram<'a> {
     book: &'a str,
     data: Vec<NgramData<'a>>,
