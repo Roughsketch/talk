@@ -1,6 +1,7 @@
 #![feature(test)]
 extern crate test;
 
+extern crate ngrams;
 extern crate rand;
 extern crate rusqlite;
 extern crate serde;
@@ -16,6 +17,7 @@ use std::io;
 use std::io::Read;
 
 mod bench;
+mod ngram;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Data{
@@ -35,6 +37,12 @@ enum Error {
 type Result<T> = std::result::Result<T, Error>;
 
 fn main() {
+    let ngrams = ngram::generate_tuples(std::path::Path::new("test"));
+    println!("Test:\n{:?}", ngrams);
+
+    let mut input = String::new();
+    io::stdin().read_line(&mut input);
+
     let data = match read_data("word_data.json") {
         Ok(data) => data,
         Err(why) => {
