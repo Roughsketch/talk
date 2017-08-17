@@ -38,9 +38,14 @@ enum Error {
 type Result<T> = std::result::Result<T, Error>;
 
 fn main() {
-    let books = read_books(Path::new("test"));
-    let ngrams = ngram::generate_tuples(&books);
-    println!("Test:\n{:?}", ngrams);
+    let path = Path::new("test/Deltora Quest #1_ The Forests of Silience - Emily Rodda.sen");
+    let os = path.file_stem().unwrap();
+    let book = os.to_str().expect("Could not convert OsStr");
+
+    let content = read_file(path);
+    let books = ngram::BookNgram::new(&content, book.into());
+
+    println!("Test:\n{:?}", books);
 
     let mut input = String::new();
     io::stdin().read_line(&mut input);
@@ -58,32 +63,12 @@ fn main() {
     }
 }
 
-fn read_books(path: &Path) -> HashMap<String, String> {
-    let books = HashMap::new();
-    let dir = path.read_dir().unwrap();
+fn read_file(path: &Path) -> String {
+    let mut file = File::open(path).expect(&format!("No such file: {:?}", path));
+    let mut content = String::new();
 
-    for entry in dir.filter_map(|e| e.ok()) {
-        let meta = match entry.metadata() {
-            Ok(meta) => meta,
-            Err(_) => continue,
-        };
-
-        if meta.is_file() {
-            let path = entry.path();
-            let os = path.as_path().file_stem().unwrap();
-            let book = os.to_str().expect("Could not convert OsStr");
-
-            let mut file = File::open(entry.path()).unwrap();
-            let mut contents = String::new();
-
-            let _ = file.read_to_string(&mut contents);
-            contents = contents.replace("\r", "");
-
-            books.insert(book.into(), contents);
-        }
-    }
-
-    books
+    let _ = file.read_to_string(&mut content);
+    content.replace("\r", "")
 }
 
 fn generate(data: &WordData) -> String {

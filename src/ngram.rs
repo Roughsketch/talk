@@ -1,4 +1,7 @@
 use std::collections::HashMap;
+use std::fs::File;
+use std::io::Read;
+use std::path::Path;
 
 use ngrams::Ngrams;
 
@@ -9,50 +12,42 @@ pub struct NgramData<'a> {
     current: &'a str,
 }
 
+#[derive(Debug)]
 pub struct BookNgram<'a> {
     book: String,
     data: Vec<NgramData<'a>>,
-    content: &'a str,
+    content: &'a String,
 }
 
-impl BookNgram<'a> {
-    pub fn new
-}
+impl <'a> BookNgram<'a> {
+    pub fn new(content: &'a String, book: String) -> BookNgram<'a> {
+        let mut data = Vec::new();
 
-pub fn generate_tuples<'a>(books: &HashMap<String, String>) -> HashMap<String, Vec<NgramData<'a>>> {
-    let mut ngrams = HashMap::new();
+        let lines = content
+            .split('\n')
+            .filter(|s| !s.is_empty())
+            .collect::<Vec<&str>>();
 
-    for (book, content) in books {
-        let res = parse_book(content);
-        ngrams.insert(book.clone(), res);
-    }
+        for line in lines {
+            let iter = line.split_whitespace();
+            let ngs = Ngrams::new(iter, 3)
+                .pad()
+                //.map(|v| v.iter().map(|s| s.to_string()).collect())
+                .collect::<Vec<Vec<&str>>>();
 
-    ngrams
-}
+            for ng in ngs {
+                data.push(NgramData {
+                    current: ng[2],
+                    prev: ng[1],
+                    p_prev: ng[0],
+                });
+            }
+        }
 
-fn parse_book<'a>(content: &String) -> Vec<NgramData<'a>> {
-    let mut ngrams = Vec::new();
-
-    let lines = content
-        .split('\n')
-        .filter(|s| !s.is_empty())
-        .collect::<Vec<&str>>();
-
-    for line in lines {
-        let iter = line.split_whitespace();
-        let ngs = Ngrams::new(iter, 3)
-            .pad()
-            //.map(|v| v.iter().map(|s| s.to_string()).collect())
-            .collect::<Vec<Vec<&str>>>();
-
-        for ng in ngs {
-            ngrams.push(NgramData {
-                current: ng[2],
-                prev: ng[1],
-                p_prev: ng[0],
-            });
+        BookNgram {
+            book: book,
+            content: content,
+            data: data,
         }
     }
-
-    ngrams
 }
