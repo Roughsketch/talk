@@ -1,61 +1,57 @@
 use std::collections::HashSet;
 
-#[derive(Debug, Deserialize, Serialize)]
-pub struct NgramData<'a> {
-    p_prev: &'a str,
-    prev: &'a str,
-    current: &'a str,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug)]
 pub struct BookNgram<'a> {
-    book: String,
-    data: Vec<NgramData<'a>>,
-    dict: HashSet<String>,
+    ngrams: Vec<Vec<Vec<&'a String>>>,
+    dict: &'a HashSet<String>,
 }
-
-const WORD_SEP: String = String::from("");
 
 impl <'a> BookNgram<'a> {
-    pub fn new(dict: HashSet<String>, map: Vec<Vec<&'a String>>, book: String) -> BookNgram<'a> {
+    pub fn new(dict: &'a HashSet<String>, content: &String) -> BookNgram<'a> {
         let mut data = Vec::new();
+        let map = map_tokens(&dict, content);
 
         for line in map {
             if line.len() < 4 {
                 continue;
             }
 
-            let mut ngs = generate_ngrams(&line, 3);
+            let mut windows = line.windows(3);
+            let mut ngs: Vec<Vec<&String>> = Vec::new();
 
-            for ng in ngs {
-                data.push(NgramData {
-                    current: ng[2],
-                    prev: ng[1],
-                    p_prev: ng[0],
-                });
+            for window in windows {
+                ngs.push(window.to_vec());
             }
+
+            let len = line.len();
+            let padding = dict.get("").unwrap();
+
+            ngs.push(vec![line[len - 1], padding, padding]);
+            ngs.push(vec![line[len - 2], line[len - 1], padding]);
+
+            ngs.push(vec![padding, padding, line[0]]);
+            ngs.push(vec![padding, line[0], line[1]]);
+
+            data.push(ngs);
         }
 
         BookNgram {
-            book: book,
             dict: dict,
-            data: data,
+            ngrams: data,
         }
     }
 }
 
-fn generate_ngrams<'a>(line: &Vec<&'a String>, count: usize) -> Vec<Vec<&'a String>> {
-    let mut windows = line
-        .windows(count)
-        .map(|s| s.to_vec())
-        .collect::<Vec<Vec<&String>>>();
-
-    let len = line.len();
-    windows.push(vec![line[len - 1], &WORD_SEP, &WORD_SEP]);
-    windows.push(vec![line[len - 2], line[len - 1], &WORD_SEP]);
-
-    windows.push(vec![&WORD_SEP, &WORD_SEP, line[0]]);
-    windows.push(vec![&WORD_SEP, line[0], line[1]]);
-
-    windows
+fn map_tokens<'a>(dict: &'a HashSet<String>, content: &String) -> Vec<Vec<&'a String>> {
+    content
+        .split("\n")
+        .filter(|line| !line.is_empty())
+        .map(|line| {
+            line.split_whitespace()
+                .map(|word| {
+                    dict.get(word).unwrap()
+                })
+                .collect()
+        })
+        .collect()
 }

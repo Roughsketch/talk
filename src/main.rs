@@ -16,8 +16,23 @@ mod bench;
 mod ngram;
 
 fn main() {
-    let set = read_set(Path::new("data/sentences"));
-    println!("{:?} - {}", set, set.len());
+    let books = read_books(Path::new("data/sentences"));
+    let mut dicts = Vec::new();
+    let mut data = Vec::new();
+    let mut ngrams = HashMap::new();
+
+
+    for (book, content) in books {
+        let unique = unique_tokens(&content);
+        data.push((book, content));
+        dicts.push(unique);
+    }
+
+    for (index, &(ref book, ref content)) in data.iter().enumerate() {
+        ngrams.insert(book, ngram::BookNgram::new(&dicts[index], &content));
+    }
+
+    println!("{:?} - {}", ngrams, ngrams.len());
 
     let mut input = String::new();
     io::stdin().read_line(&mut input);
@@ -52,22 +67,10 @@ fn read_books(path: &Path) -> HashMap<String, String> {
     books
 }
 
-fn read_set(path: &Path) -> HashMap<String, ngram::BookNgram> {
-    let mut output = HashMap::new();
-
-    let books = read_books(path);
-
-    for (book, content) in books {
-        let unique = unique_tokens(&content);
-        let map = map_tokens(&unique, &content);
-        output.insert(book, ngram::BookNgram::new(unique, map, book));
-    }
-
-    output
-}
-
 fn unique_tokens(content: &String) -> HashSet<String> {
     let mut unique = HashSet::new();
+
+    unique.insert(String::from("")); // Empty value
 
     let mut words = content.split_whitespace().collect::<Vec<&str>>();
     words.sort();
@@ -78,18 +81,4 @@ fn unique_tokens(content: &String) -> HashSet<String> {
     }
 
     unique
-}
-
-fn map_tokens<'a>(dict: &'a HashSet<String>, content: &String) -> Vec<Vec<&'a String>> {
-    content
-        .split("\n")
-        .filter(|line| !line.is_empty())
-        .map(|line| {
-            line.split_whitespace()
-                .map(|word| {
-                    dict.get(word).unwrap()
-                })
-                .collect()
-        })
-        .collect()
 }
