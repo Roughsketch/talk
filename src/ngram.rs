@@ -1,4 +1,4 @@
-use ngrams::Ngrams;
+use std::collections::HashSet;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct NgramData<'a> {
@@ -9,25 +9,23 @@ pub struct NgramData<'a> {
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct BookNgram<'a> {
-    book: &'a str,
+    book: String,
     data: Vec<NgramData<'a>>,
-    content: &'a str,
+    dict: HashSet<String>,
 }
 
+const WORD_SEP: String = String::from("");
+
 impl <'a> BookNgram<'a> {
-    pub fn new(content: &'a str, book: &'a str) -> BookNgram<'a> {
+    pub fn new(dict: HashSet<String>, map: Vec<Vec<&'a String>>, book: String) -> BookNgram<'a> {
         let mut data = Vec::new();
 
-        let lines = content
-            .split('\n')
-            .filter(|s| !s.is_empty())
-            .collect::<Vec<&str>>();
+        for line in map {
+            if line.len() < 4 {
+                continue;
+            }
 
-        for line in lines {
-            let iter = line.split_whitespace();
-            let ngs = Ngrams::new(iter, 3)
-                .pad()
-                .collect::<Vec<Vec<&str>>>();
+            let mut ngs = generate_ngrams(&line, 3);
 
             for ng in ngs {
                 data.push(NgramData {
@@ -40,8 +38,24 @@ impl <'a> BookNgram<'a> {
 
         BookNgram {
             book: book,
-            content: content,
+            dict: dict,
             data: data,
         }
     }
+}
+
+fn generate_ngrams<'a>(line: &Vec<&'a String>, count: usize) -> Vec<Vec<&'a String>> {
+    let mut windows = line
+        .windows(count)
+        .map(|s| s.to_vec())
+        .collect::<Vec<Vec<&String>>>();
+
+    let len = line.len();
+    windows.push(vec![line[len - 1], &WORD_SEP, &WORD_SEP]);
+    windows.push(vec![line[len - 2], line[len - 1], &WORD_SEP]);
+
+    windows.push(vec![&WORD_SEP, &WORD_SEP, line[0]]);
+    windows.push(vec![&WORD_SEP, line[0], line[1]]);
+
+    windows
 }

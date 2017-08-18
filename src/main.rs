@@ -1,69 +1,26 @@
 #![feature(test)]
 extern crate test;
 
-extern crate ngrams;
-extern crate rand;
 extern crate rusqlite;
 extern crate serde;
 #[macro_use] extern crate serde_derive;
 extern crate serde_json;
 
-use rand::Rng;
-use rand::distributions::{Weighted, WeightedChoice, IndependentSample};
-
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io;
-use std::io::{Read, Write};
+use std::io::Read;
 use std::path::Path;
 
 mod bench;
 mod ngram;
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct Data{
-    start: Option<u32>,
-    end: Option<u32>,
-    next: Option<HashMap<String, u32>>,
-}
-
-type WordData = HashMap<String, Data>;
-
-#[derive(Debug)]
-enum Error {
-    JsonError(serde_json::Error),
-    IoError(io::Error),
-}
-
-type Result<T> = std::result::Result<T, Error>;
-
 fn main() {
-    let book_data = read_books(Path::new("data/sentences"));
-    let books = book_data
-        .iter()
-        .map(|(ref book, ref content)| ngram::BookNgram::new(&content, book))
-        .collect::<Vec<ngram::BookNgram>>();
+    let set = read_set(Path::new("data/sentences"));
+    println!("{:?} - {}", set, set.len());
 
     let mut input = String::new();
     io::stdin().read_line(&mut input);
-
-    let data = match read_data("word_data.json") {
-        Ok(data) => data,
-        Err(why) => {
-            println!("Could not read data: {:?}", why);
-            return
-        }
-    };
-
-    loop {
-        println!("{}", generate(&data));
-    }
-}
-
-fn write_file(path: &Path, content: String) {
-    let mut file = File::create(path).expect(&format!("Could not make file: {:?}", path));
-
-    file.write(content.as_bytes());
 }
 
 fn read_file(path: &Path) -> String {
@@ -95,50 +52,44 @@ fn read_books(path: &Path) -> HashMap<String, String> {
     books
 }
 
-fn generate(data: &WordData) -> String {
-    let starts = data.iter()
-        .filter(|&(_, ref v)| v.start.is_some())
-        .map(|(k, _)| k.clone())
-        .collect::<Vec<String>>();
+fn read_set(path: &Path) -> HashMap<String, ngram::BookNgram> {
+    let mut output = HashMap::new();
 
-    let mut rng = rand::thread_rng();
-    let mut word = rng.choose(&starts).unwrap();
-    let mut output = Vec::new();
-    
-    loop {
-        output.push(word.clone());
+    let books = read_books(path);
 
-        let entry = match data.get(word) {
-            Some(v) => v,
-            None => {
-                println!("{} does not have an entry.", word);
-                return output.join(" ")
-            }
-        };
-
-        let next = match entry.next {
-            Some(ref next) => next,
-            None => return output.join(" "),
-        };
-
-        let mut weights = next.iter()
-            .filter_map(|(&ref w, &count)| Some(Weighted { weight: count, item: w }))
-            .collect::<Vec<_>>();
-
-        let wc = WeightedChoice::new(&mut weights);
-        word = wc.ind_sample(&mut rng);
+    for (book, content) in books {
+        let unique = unique_tokens(&content);
+        let map = map_tokens(&unique, &content);
+        output.insert(book, ngram::BookNgram::new(unique, map, book));
     }
+
+    output
 }
 
-fn read_data(filename: &str) -> Result<WordData> {
-    let mut content = String::new();
+fn unique_tokens(content: &String) -> HashSet<String> {
+    let mut unique = HashSet::new();
 
-    let mut file = File::open(filename)
-        .map_err(Error::IoError)?;
+    let mut words = content.split_whitespace().collect::<Vec<&str>>();
+    words.sort();
+    words.dedup_by(|a, b| a == b);
 
-    file.read_to_string(&mut content)
-        .map_err(Error::IoError)?;
+    for word in words {
+        unique.insert(word.into());
+    }
 
-    serde_json::from_str::<WordData>(&content)
-        .map_err(Error::JsonError)
+    unique
+}
+
+fn map_tokens<'a>(dict: &'a HashSet<String>, content: &String) -> Vec<Vec<&'a String>> {
+    content
+        .split("\n")
+        .filter(|line| !line.is_empty())
+        .map(|line| {
+            line.split_whitespace()
+                .map(|word| {
+                    dict.get(word).unwrap()
+                })
+                .collect()
+        })
+        .collect()
 }
