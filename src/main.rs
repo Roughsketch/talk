@@ -42,8 +42,9 @@ fn main() {
     let books = book_data
         .iter()
         .map(|(ref book, ref content)| ngram::BookNgram::new(&content, book))
-        .collect::<Vec<ngram::BookNgram>>();
+        .collect::<ngram::BookNgrams>();
 
+    println!("Loaded");
     let mut input = String::new();
     io::stdin().read_line(&mut input);
 

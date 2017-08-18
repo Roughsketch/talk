@@ -1,3 +1,4 @@
+use std::iter::FromIterator;
 use ngrams::Ngrams;
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -43,5 +44,33 @@ impl <'a> BookNgram<'a> {
             content: content,
             data: data,
         }
+    }
+}
+
+pub struct BookNgrams<'a>(Vec<BookNgram<'a>>);
+
+impl<'a> FromIterator<BookNgram<'a>> for BookNgrams<'a> {
+    fn from_iter<I: IntoIterator<Item=BookNgram<'a>>>(iter: I) -> Self {
+        let mut c = BookNgrams::new();
+
+        for i in iter {
+            c.add(i);
+        }
+
+        c
+    }
+}
+
+impl<'a> BookNgrams<'a> {
+    pub fn new() -> BookNgrams<'a> {
+        BookNgrams(Vec::new())
+    }
+
+    pub fn start(self) -> String {
+        "test".into()
+    }
+
+    fn add(&mut self, item: BookNgram<'a>) {
+        self.0.push(item);
     }
 }
