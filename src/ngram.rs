@@ -11,7 +11,6 @@ pub struct NgramData<'a> {
 #[derive(Debug, Deserialize, Serialize)]
 pub struct BookNgram<'a> {
     book: &'a str,
-    //  TODO: Add counter to get rid of duplicates and double as RNG weight.
     data: Vec<NgramData<'a>>,
     content: &'a str,
 }
@@ -32,11 +31,13 @@ impl <'a> BookNgram<'a> {
                 .collect::<Vec<Vec<&str>>>();
 
             for ng in ngs {
-                data.push(NgramData {
-                    current: ng[2],
-                    prev: ng[1],
-                    p_prev: ng[0],
-                });
+                if ng[1] != "\u{2060}" {
+                    data.push(NgramData {
+                        current: ng[2],
+                        prev: ng[1],
+                        p_prev: ng[0],
+                    });
+                }
             }
         }
 
