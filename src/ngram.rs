@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+use std::hash::{Hash, Hasher};
 use std::iter::FromIterator;
 use ngrams::Ngrams;
 
@@ -6,19 +8,44 @@ pub struct NgramData<'a> {
     p_prev: &'a str,
     prev: &'a str,
     current: &'a str,
+    total: u32,
+}
+
+impl<'a> NgramData<'a> {
+    fn total(&self) -> u32 {
+        self.total
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct BookNgram<'a> {
     book: &'a str,
     //  TODO: Add counter to get rid of duplicates and double as RNG weight.
-    data: Vec<NgramData<'a>>,
+    data: HashSet<NgramData<'a>>,
     content: &'a str,
 }
 
+impl<'a> Hash for NgramData<'a> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.p_prev.hash(state);
+        self.prev.hash(state);
+        self.current.hash(state);
+    }
+}
+
+impl<'a> PartialEq for NgramData<'a> {
+  fn eq(&self, other: &NgramData<'a>) -> bool {
+        (self.p_prev == other.p_prev) &&
+        (self.prev == other.prev) &&
+        (self.current == other.current)
+  }
+}
+
+impl<'a> Eq for NgramData<'a> {}
+
 impl <'a> BookNgram<'a> {
     pub fn new(content: &'a str, book: &'a str) -> BookNgram<'a> {
-        let mut data = Vec::new();
+        let mut data = HashSet::new();
 
         let lines = content
             .split('\n')
@@ -32,11 +59,25 @@ impl <'a> BookNgram<'a> {
                 .collect::<Vec<Vec<&str>>>();
 
             for ng in ngs {
-                data.push(NgramData {
-                    current: ng[2],
-                    prev: ng[1],
-                    p_prev: ng[0],
-                });
+                if ng[1] != "\u{2060}" {
+                    let mut entry = NgramData {
+                        current: ng[2],
+                        prev: ng[1],
+                        p_prev: ng[0],
+                        total: 1,
+                    };
+                    
+                    {
+                        let opt = data.get(&entry);
+
+                        if opt.is_some() {
+                            let en: &NgramData<'a> = opt.unwrap();
+                            entry.total += en.total();
+                        }
+                    }
+
+                    data.replace(entry);
+                }
             }
         }
 
@@ -48,6 +89,7 @@ impl <'a> BookNgram<'a> {
     }
 }
 
+#[derive(Debug)]
 pub struct BookNgrams<'a>(Vec<BookNgram<'a>>);
 
 impl<'a> FromIterator<BookNgram<'a>> for BookNgrams<'a> {
