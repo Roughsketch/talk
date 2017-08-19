@@ -31,7 +31,7 @@ impl <'a> BookNgram<'a> {
                 .collect::<Vec<Vec<&str>>>();
 
             for ng in ngs {
-                if ng[1] != "\u{2060}" {
+                if ng[1] != "\u{2060}" && ng[2] != "\u{2060}" {
                     data.push(NgramData {
                         current: ng[2],
                         prev: ng[1],
