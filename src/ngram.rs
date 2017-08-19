@@ -49,6 +49,7 @@ impl <'a> BookNgram<'a> {
     }
 }
 
+#[derive(Debug)]
 pub struct BookNgrams<'a>(Vec<BookNgram<'a>>);
 
 impl<'a> FromIterator<BookNgram<'a>> for BookNgrams<'a> {
