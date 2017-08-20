@@ -1,3 +1,4 @@
+#![feature(offset_to)]
 #![feature(test)]
 extern crate test;
 

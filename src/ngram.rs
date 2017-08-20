@@ -2,22 +2,26 @@ use std::iter::FromIterator;
 use ngrams::Ngrams;
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct NgramData<'a> {
-    p_prev: &'a str,
-    prev: &'a str,
-    current: &'a str,
+pub struct NgramData {
+    p_prev: u16,
+    p_prev_len: u8,
+    prev: u16,
+    prev_len: u8,
+    current: u16,
+    current_len: u8,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct BookNgram<'a> {
     book: &'a str,
-    data: Vec<NgramData<'a>>,
+    pub data: Vec<NgramData>,
     content: &'a str,
 }
 
 impl <'a> BookNgram<'a> {
     pub fn new(content: &'a str, book: &'a str) -> BookNgram<'a> {
         let mut data = Vec::new();
+        let start = content.as_ptr();
 
         let lines = content
             .split('\n')
@@ -25,17 +29,19 @@ impl <'a> BookNgram<'a> {
             .collect::<Vec<&str>>();
 
         for line in lines {
-            let iter = line.split_whitespace();
-            let ngs = Ngrams::new(iter, 3)
+            let ngs = Ngrams::new(line.split_whitespace(), 3)
                 .pad()
                 .collect::<Vec<Vec<&str>>>();
 
             for ng in ngs {
-                if ng[1] != "\u{2060}" && ng[2] != "\u{2060}" {
+                if !(ng[1] == "\u{2060}" && ng[2] == "\u{2060}") {
                     data.push(NgramData {
-                        current: ng[2],
-                        prev: ng[1],
-                        p_prev: ng[0],
+                        current: start.offset_to(ng[2].as_ptr()).unwrap_or(0) as u16,
+                        current_len: ng[2].len() as u8,
+                        prev: start.offset_to(ng[1].as_ptr()).unwrap_or(0) as u16,
+                        prev_len: ng[1].len() as u8,
+                        p_prev: start.offset_to(ng[0].as_ptr()).unwrap_or(0) as u16,
+                        p_prev_len: ng[0].len() as u8,
                     });
                 }
             }
