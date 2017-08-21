@@ -46,8 +46,14 @@ fn main() {
         .collect::<ngram::BookNgrams>();
 
     println!("Loaded");
-    let mut input = String::new();
-    io::stdin().read_line(&mut input);
+
+    loop {
+        let results = books.generate();
+
+        println!("{:?}", results);
+        let mut input = String::new();
+        io::stdin().read_line(&mut input);
+    }
 
     let data = match read_data("word_data.json") {
         Ok(data) => data,
