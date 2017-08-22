@@ -126,7 +126,7 @@ pub struct NgramEntry<'a> {
     ngram: NgramData,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct Output<'a> {
     books: HashSet<&'a str>,
     string: String,

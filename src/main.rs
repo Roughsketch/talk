@@ -48,9 +48,17 @@ fn main() {
 
         if msg == "gen" {
             let results = books.generate();
+            let json = match serde_json::to_string(&results) {
+                Ok(json) => json,
+                Err(why) => {
+                    error!("Could not serialize results: {:?}", why);
+                    msg.clear();
+                    continue;
+                }
+            };
 
             if let Err(why) = socket
-                .write(&format!("{:?}", results).as_bytes()) {
+                .write(&json.as_bytes()) {
 
                 error!("Could not write to socket: {:?}", why);
             }
