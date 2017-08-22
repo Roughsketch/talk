@@ -140,10 +140,6 @@ impl<'a> Output<'a> {
         }
     }
 
-    pub fn get(&self) -> &String {
-        &self.string
-    }
-
     pub fn append_entry(&mut self, book: &'a str, word: &'a str) {
         self.add_book(book);
 
@@ -201,7 +197,7 @@ impl<'a> BookNgrams<'a> {
 
     fn random(&self, p_prev: &str, prev: &str) -> Option<NgramEntry<'a>> {
         let mut rng = rand::thread_rng();
-        let mut choices = self.search(p_prev, prev);
+        let choices = self.search(p_prev, prev);
         
         match rng.choose(&choices) {
             Some(choice) => Some(choice.clone()),

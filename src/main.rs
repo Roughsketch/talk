@@ -2,80 +2,67 @@
 #![feature(test)]
 extern crate test;
 
+#[macro_use] extern crate log;
+extern crate nanomsg;
 extern crate ngrams;
+extern crate pretty_env_logger;
 extern crate rand;
-extern crate rusqlite;
 extern crate serde;
 #[macro_use] extern crate serde_derive;
 extern crate serde_json;
 
-use rand::Rng;
-use rand::distributions::{Weighted, WeightedChoice, IndependentSample};
-
 use std::collections::HashMap;
 use std::fs::File;
-use std::io;
 use std::io::{Read, Write};
 use std::path::Path;
 
 mod bench;
 mod ngram;
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct Data{
-    start: Option<u32>,
-    end: Option<u32>,
-    next: Option<HashMap<String, u32>>,
-}
-
-type WordData = HashMap<String, Data>;
-
-#[derive(Debug)]
-enum Error {
-    JsonError(serde_json::Error),
-    IoError(io::Error),
-}
-
-type Result<T> = std::result::Result<T, Error>;
-
 fn main() {
+    info!("Generating ngrams...");
+
     let book_data = read_books(Path::new("data/sentences"));
     let books = book_data
         .iter()
-        .map(|(ref book, ref content)| ngram::BookNgram::new(&content, book))
+        .map(|(ref book, ref content)| 
+            ngram::BookNgram::new(&content, book))
         .collect::<ngram::BookNgrams>();
 
-    println!("Loaded");
+    info!("Loaded.");
 
+    let mut socket = nanomsg::Socket::new(nanomsg::Protocol::Rep)
+        .expect("Could not create IPC socket.");
+    
+    let _endpoint = socket.bind("ipc:///tmp/talk.ipc")
+        .expect("Could not bind to IPC endpoint.");
+
+    let mut msg = String::new();
     loop {
-        let results = books.generate();
-
-        println!("{:?}", results);
-        let mut input = String::new();
-        io::stdin().read_line(&mut input);
-    }
-
-    let data = match read_data("word_data.json") {
-        Ok(data) => data,
-        Err(why) => {
-            println!("Could not read data: {:?}", why);
-            return
+        if let Err(why) = socket.read_to_string(&mut msg) {
+            error!("Error reading from socket: {:?}", why);
+            continue;
         }
-    };
 
-    loop {
-        println!("{}", generate(&data));
+        trace!("Got payload: '{}'", msg);
+
+        if msg == "gen" {
+            let results = books.generate();
+
+            if let Err(why) = socket
+                .write(&format!("{:?}", results).as_bytes()) {
+
+                error!("Could not write to socket: {:?}", why);
+            }
+        }
+
+        msg.clear();
     }
-}
-
-fn write_file(path: &Path, content: String) {
-    let mut file = File::create(path).expect(&format!("Could not make file: {:?}", path));
-
-    file.write(content.as_bytes());
 }
 
 fn read_file(path: &Path) -> String {
-    let mut file = File::open(path).expect(&format!("No such file: {:?}", path));
+    let mut file = File::open(path)
+        .expect(&format!("No such file: {:?}", path));
     let mut content = String::new();
 
     let _ = file.read_to_string(&mut content);
@@ -103,50 +90,3 @@ fn read_books(path: &Path) -> HashMap<String, String> {
     books
 }
 
-fn generate(data: &WordData) -> String {
-    let starts = data.iter()
-        .filter(|&(_, ref v)| v.start.is_some())
-        .map(|(k, _)| k.clone())
-        .collect::<Vec<String>>();
-
-    let mut rng = rand::thread_rng();
-    let mut word = rng.choose(&starts).unwrap();
-    let mut output = Vec::new();
-    
-    loop {
-        output.push(word.clone());
-
-        let entry = match data.get(word) {
-            Some(v) => v,
-            None => {
-                println!("{} does not have an entry.", word);
-                return output.join(" ")
-            }
-        };
-
-        let next = match entry.next {
-            Some(ref next) => next,
-            None => return output.join(" "),
-        };
-
-        let mut weights = next.iter()
-            .filter_map(|(&ref w, &count)| Some(Weighted { weight: count, item: w }))
-            .collect::<Vec<_>>();
-
-        let wc = WeightedChoice::new(&mut weights);
-        word = wc.ind_sample(&mut rng);
-    }
-}
-
-fn read_data(filename: &str) -> Result<WordData> {
-    let mut content = String::new();
-
-    let mut file = File::open(filename)
-        .map_err(Error::IoError)?;
-
-    file.read_to_string(&mut content)
-        .map_err(Error::IoError)?;
-
-    serde_json::from_str::<WordData>(&content)
-        .map_err(Error::JsonError)
-}
