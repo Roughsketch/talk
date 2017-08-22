@@ -20,6 +20,7 @@ mod bench;
 mod ngram;
 
 fn main() {
+    pretty_env_logger::init().expect("Could not initialize env logger");
     info!("Generating ngrams...");
 
     let book_data = read_books(Path::new("data/sentences"));
