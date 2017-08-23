@@ -48,7 +48,13 @@ fn main() {
         trace!("Got payload: '{}'", msg);
 
         if msg == "gen" {
-            let results = books.generate();
+            let results = loop {
+                let r = books.generate();
+                if r.books.len() >= 4 {
+                    break r;
+                }
+            };
+            
             let json = match serde_json::to_string(&results) {
                 Ok(json) => json,
                 Err(why) => {
