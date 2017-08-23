@@ -7,6 +7,8 @@ const WORD_SEP: &'static str = "\u{2060}";
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct NgramData {
+    pp_prev: u32,
+    pp_prev_len: u8,
     p_prev: u32,
     p_prev_len: u8,
     prev: u32,
@@ -16,6 +18,16 @@ pub struct NgramData {
 }
 
 impl NgramData {
+    pub fn pp_prev<'a>(&self, content: &'a str) -> &'a str {
+        if self.pp_prev_len == 0 {
+            return WORD_SEP
+        }
+
+        let index = self.pp_prev as usize;
+        let end = index + self.pp_prev_len as usize;
+        &content[index..end]
+    }
+
     pub fn p_prev<'a>(&self, content: &'a str) -> &'a str {
         if self.p_prev_len == 0 {
             return WORD_SEP
@@ -65,19 +77,21 @@ impl <'a> BookNgram<'a> {
             .collect::<Vec<&str>>();
 
         for line in lines {
-            let ngs = Ngrams::new(line.split_whitespace(), 3)
+            let ngs = Ngrams::new(line.split_whitespace(), 4)
                 .pad()
                 .collect::<Vec<Vec<&str>>>();
 
             for ng in ngs {
-                if !(ng[1] == "\u{2060}" && ng[2] == "\u{2060}") {
+                if !(ng[2] == "\u{2060}" && ng[3] == "\u{2060}") {
                     data.push(NgramData {
-                        current: start.offset_to(ng[2].as_ptr()).unwrap_or(0) as u32,
-                        current_len: word_length(ng[2]),
-                        prev: start.offset_to(ng[1].as_ptr()).unwrap_or(0) as u32,
-                        prev_len: word_length(ng[1]),
-                        p_prev: start.offset_to(ng[0].as_ptr()).unwrap_or(0) as u32,
-                        p_prev_len: word_length(ng[0]),
+                        current: start.offset_to(ng[3].as_ptr()).unwrap_or(0) as u32,
+                        current_len: word_length(ng[3]),
+                        prev: start.offset_to(ng[2].as_ptr()).unwrap_or(0) as u32,
+                        prev_len: word_length(ng[2]),
+                        p_prev: start.offset_to(ng[1].as_ptr()).unwrap_or(0) as u32,
+                        p_prev_len: word_length(ng[1]),
+                        pp_prev: start.offset_to(ng[0].as_ptr()).unwrap_or(0) as u32,
+                        pp_prev_len: word_length(ng[0]),
                     });
                 }
             }
@@ -90,11 +104,13 @@ impl <'a> BookNgram<'a> {
         }
     }
 
-    fn search(&self, p_prev: &str, prev: &str) -> Vec<NgramEntry<'a>> {
+    fn search(&self, pp_prev: &str, p_prev: &str, prev: &str) -> Vec<NgramEntry<'a>> {
         let mut res = Vec::new();
 
         for entry in &self.data {
-            if entry.p_prev(self.content) == p_prev && entry.prev(self.content) == prev {
+            if  entry.pp_prev(self.content) == pp_prev &&
+                entry.p_prev(self.content) == p_prev && 
+                entry.prev(self.content) == prev {
                 res.push(NgramEntry {
                     book: self.book,
                     ngram: entry.clone(),
@@ -128,8 +144,8 @@ pub struct NgramEntry<'a> {
 
 #[derive(Debug, Serialize)]
 pub struct Output<'a> {
-    books: HashSet<&'a str>,
-    string: String,
+    pub books: HashSet<&'a str>,
+    pub string: String,
 }
 
 impl<'a> Output<'a> {
@@ -174,7 +190,7 @@ impl<'a> BookNgrams<'a> {
 
     pub fn generate(&self) -> Output<'a> {
         let mut output = Output::new();
-        let mut current = self.random("\u{2060}", "\u{2060}");
+        let mut current = self.random("\u{2060}", "\u{2060}", "\u{2060}");
 
         loop {
             if let Some(choice) = current {
@@ -187,7 +203,10 @@ impl<'a> BookNgrams<'a> {
 
                 output.append_entry(choice.book, choice.ngram.current(content));
 
-                current = self.random(choice.ngram.prev(content), choice.ngram.current(content));
+                current = self.random(
+                    choice.ngram.p_prev(content),
+                    choice.ngram.prev(content),
+                    choice.ngram.current(content));
             } else {
                 break;
             }
@@ -195,9 +214,9 @@ impl<'a> BookNgrams<'a> {
         output
     }
 
-    fn random(&self, p_prev: &str, prev: &str) -> Option<NgramEntry<'a>> {
+    fn random(&self, pp_prev: &str, p_prev: &str, prev: &str) -> Option<NgramEntry<'a>> {
         let mut rng = rand::thread_rng();
-        let choices = self.search(p_prev, prev);
+        let choices = self.search(pp_prev, p_prev, prev);
         
         match rng.choose(&choices) {
             Some(choice) => Some(choice.clone()),
@@ -205,11 +224,11 @@ impl<'a> BookNgrams<'a> {
         }
     }
 
-    fn search(&self, p_prev: &str, prev: &str) -> Vec<NgramEntry<'a>> {
+    fn search(&self, pp_prev: &str, p_prev: &str, prev: &str) -> Vec<NgramEntry<'a>> {
         let mut res = Vec::new();
 
         for bg in &self.0 {
-            res.append(&mut bg.search(p_prev, prev));
+            res.append(&mut bg.search(pp_prev, p_prev, prev));
         }
 
         res
