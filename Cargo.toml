@@ -4,11 +4,13 @@ version = "0.1.0"
 authors = ["Maiddog <maiddogsrl@gmail.com>"]
 
 [dependencies]
+clap = "2.31"
 log = "0.3"
 nanomsg = "0.6"
 ngrams = "1.0"
 pretty_env_logger = "0.1.1"
 rand = "0.3"
+rayon = "1.0"
 serde = "1.0"
 serde_derive = "1.0"
 serde_json = "1.0"

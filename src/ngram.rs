@@ -1,7 +1,10 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
+use std::fmt;
 use std::iter::FromIterator;
+
 use ngrams::Ngrams;
 use rand::{self, Rng};
+use rayon::prelude::*;
 
 const WORD_SEP: &'static str = "\u{2060}";
 
@@ -105,20 +108,20 @@ impl <'a> BookNgram<'a> {
     }
 
     fn search(&self, pp_prev: &str, p_prev: &str, prev: &str) -> Vec<NgramEntry<'a>> {
-        let mut res = Vec::new();
-
-        for entry in &self.data {
-            if  entry.pp_prev(self.content) == pp_prev &&
+        self.data
+            .par_iter()
+            .filter(|entry| {
+                entry.pp_prev(self.content) == pp_prev &&
                 entry.p_prev(self.content) == p_prev && 
-                entry.prev(self.content) == prev {
-                res.push(NgramEntry {
+                entry.prev(self.content) == prev
+            })
+            .map(|entry| {
+                NgramEntry {
                     book: self.book,
-                    ngram: entry.clone(),
-                });
-            }
-        }
-
-        res
+                    ngram: entry.clone()
+                }
+            })
+            .collect()
     }
 }
 
@@ -146,6 +149,18 @@ pub struct NgramEntry<'a> {
 pub struct Output<'a> {
     pub books: HashSet<&'a str>,
     pub string: String,
+}
+
+impl<'a> fmt::Display for Output<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        write!(f, "{}\n\nBooks:\n", self.string)?;
+
+        for (index, book) in self.books.iter().enumerate() {
+            write!(f, "\t{}: {}\n", index + 1, book)?;
+        }
+
+        Ok(())
+    }
 }
 
 impl<'a> Output<'a> {
@@ -188,25 +203,37 @@ impl<'a> BookNgrams<'a> {
         BookNgrams(Vec::new())
     }
 
+    pub fn from_books(books: &'a HashMap<String, String>) -> Self {
+        let ngrams = books
+            .par_iter()
+            .map(|(ref book, ref content)| 
+                BookNgram::new(&content, book))
+            .collect::<Vec<BookNgram>>();
+        
+        BookNgrams(ngrams)
+    }
+
     pub fn generate(&self) -> Output<'a> {
         let mut output = Output::new();
         let mut current = self.random("\u{2060}", "\u{2060}", "\u{2060}");
 
         loop {
             if let Some(choice) = current {
-                let book_index = self.0.iter().position(|ref b| b.book == choice.book).unwrap();
-                let content = self.0[book_index].content;
+                let data = self.0
+                    .par_iter()
+                    .find_any(|ref b| b.book == choice.book)
+                    .unwrap();
 
-                if choice.ngram.current(content) == WORD_SEP {
+                if choice.ngram.current(data.content) == WORD_SEP {
                     break;
                 }
 
-                output.append_entry(choice.book, choice.ngram.current(content));
+                output.append_entry(choice.book, choice.ngram.current(data.content));
 
                 current = self.random(
-                    choice.ngram.p_prev(content),
-                    choice.ngram.prev(content),
-                    choice.ngram.current(content));
+                    choice.ngram.p_prev(data.content),
+                    choice.ngram.prev(data.content),
+                    choice.ngram.current(data.content));
             } else {
                 break;
             }
