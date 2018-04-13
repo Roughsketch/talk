@@ -1,8 +1,13 @@
+#[allow(unused_imports)]
 use test;
-use ngram;
+#[allow(unused_imports)]
 use std::path::Path;
-use read_books;
+#[allow(unused_imports)]
 use rayon::prelude::*;
+#[allow(unused_imports)]
+use ngram;
+#[allow(unused_imports)]
+use read_books;
 
 #[bench]
 fn bench_read(b: &mut test::Bencher) {
