@@ -100,11 +100,7 @@ impl <'a> BookNgram<'a> {
             }
         }
 
-        BookNgram {
-            book: book,
-            content: content,
-            data: data,
-        }
+        BookNgram { book, content, data }
     }
 
     fn search(&self, pp_prev: &str, p_prev: &str, prev: &str) -> Vec<NgramEntry<'a>> {
