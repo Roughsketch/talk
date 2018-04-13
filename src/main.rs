@@ -28,7 +28,7 @@ fn main() {
     pretty_env_logger::init().expect("Could not initialize env logger");
     info!("Generating ngrams...");
 
-    let book_data = read_books(Path::new("data/sentences"));
+    let book_data = read_books("data/sentences");
     let books = ngram::BookNgrams::from_books(&book_data);
 
     info!("Loaded.");
@@ -65,10 +65,10 @@ fn read_file(path: &Path) -> String {
     content.replace("\r", "")
 }
 
-fn read_books(path: &Path) -> HashMap<String, String> {
+fn read_books<P: AsRef<Path>>(path: P) -> HashMap<String, String> {
     let mut books = HashMap::new();
 
-    let dir = path
+    let dir = path.as_ref()
         .read_dir().unwrap()
         .filter_map(|e| e.ok())
         .filter(|e| e.metadata().is_ok())
