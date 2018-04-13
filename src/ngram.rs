@@ -85,7 +85,7 @@ impl <'a> BookNgram<'a> {
                 .collect::<Vec<Vec<&str>>>();
 
             for ng in ngs {
-                if !(ng[2] == "\u{2060}" && ng[3] == "\u{2060}") {
+                if !(ng[2] == WORD_SEP && ng[3] == WORD_SEP) {
                     data.push(NgramData {
                         current: start.offset_to(ng[3].as_ptr()).unwrap_or(0) as u32,
                         current_len: word_length(ng[3]),
@@ -126,7 +126,7 @@ impl <'a> BookNgram<'a> {
 }
 
 fn word_length<'a>(slice: &'a str) -> u8 {
-    if slice == "\u{2060}" {
+    if slice == WORD_SEP {
         0
     } else {
         if slice.len() > 255 {
@@ -215,7 +215,7 @@ impl<'a> BookNgrams<'a> {
 
     pub fn generate(&self) -> Output<'a> {
         let mut output = Output::new();
-        let mut current = self.random("\u{2060}", "\u{2060}", "\u{2060}");
+        let mut current = self.random(WORD_SEP, WORD_SEP, WORD_SEP);
 
         loop {
             if let Some(choice) = current {
