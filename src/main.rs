@@ -4,6 +4,7 @@ extern crate test;
 
 #[macro_use] extern crate clap;
 #[macro_use] extern crate log;
+#[cfg(target_os = "linux")]
 extern crate nanomsg;
 extern crate ngrams;
 extern crate pretty_env_logger;
@@ -84,7 +85,12 @@ fn read_books(path: &Path) -> HashMap<String, String> {
 
     books
 }
+#[cfg(not(target_os = "linux"))]
+fn ipc_server(_books: &ngram::BookNgrams) {
+    println!("Server is not supported on Windows.");
+}
 
+#[cfg(target_os = "linux")]
 fn ipc_server(books: &ngram::BookNgrams) {
     let mut socket = nanomsg::Socket::new(nanomsg::Protocol::Rep)
         .expect("Could not create IPC socket.");
