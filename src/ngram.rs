@@ -9,55 +9,68 @@ use rayon::prelude::*;
 const WORD_SEP: &'static str = "\u{2060}";
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
+struct Offset(u32);
+
+impl Offset {
+    fn new(offset: u32, length: u8) -> Self {
+        Offset((offset & 0x00FFFFFF) | ((length as u32) << 24))
+    }
+
+    fn len(&self) -> usize {
+        (self.0 >> 24) as usize
+    }
+
+    fn ptr(&self) -> usize {
+        (self.0 & 0x00FFFFFF) as usize
+    }
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct NgramData {
-    pp_prev: u32,
-    pp_prev_len: u8,
-    p_prev: u32,
-    p_prev_len: u8,
-    prev: u32,
-    prev_len: u8,
-    current: u32,
-    current_len: u8,
+    pp_prev: Offset,
+    p_prev: Offset,
+    prev: Offset,
+    current: Offset,
 }
 
 impl NgramData {
     pub fn pp_prev<'a>(&self, content: &'a str) -> &'a str {
-        if self.pp_prev_len == 0 {
+        if self.pp_prev.len() == 0 {
             return WORD_SEP
         }
 
-        let index = self.pp_prev as usize;
-        let end = index + self.pp_prev_len as usize;
+        let index = self.pp_prev.ptr();
+        let end = index + self.pp_prev.len();
         &content[index..end]
     }
 
     pub fn p_prev<'a>(&self, content: &'a str) -> &'a str {
-        if self.p_prev_len == 0 {
+        if self.p_prev.len() == 0 {
             return WORD_SEP
         }
 
-        let index = self.p_prev as usize;
-        let end = index + self.p_prev_len as usize;
+        let index = self.p_prev.ptr();
+        let end = index + self.p_prev.len();
         &content[index..end]
     }
 
     pub fn prev<'a>(&self, content: &'a str) -> &'a str {
-        if self.prev_len == 0 {
+        if self.prev.len() == 0 {
             return WORD_SEP
         }
         
-        let index = self.prev as usize;
-        let end = index + self.prev_len as usize;
+        let index = self.prev.ptr();
+        let end = index + self.prev.len();
         &content[index..end]
     }
 
     pub fn current<'a>(&self, content: &'a str) -> &'a str {
-        if self.current_len == 0 {
+        if self.current.len() == 0 {
             return WORD_SEP
         }
         
-        let index = self.current as usize;
-        let end = index + self.current_len as usize;
+        let index = self.current.ptr();
+        let end = index + self.current.len();
         &content[index..end]
     }
 }
@@ -87,14 +100,18 @@ impl <'a> BookNgram<'a> {
             for ng in ngs {
                 if !(ng[2] == WORD_SEP && ng[3] == WORD_SEP) {
                     data.push(NgramData {
-                        current: start.offset_to(ng[3].as_ptr()).unwrap_or(0) as u32,
-                        current_len: word_length(ng[3]),
-                        prev: start.offset_to(ng[2].as_ptr()).unwrap_or(0) as u32,
-                        prev_len: word_length(ng[2]),
-                        p_prev: start.offset_to(ng[1].as_ptr()).unwrap_or(0) as u32,
-                        p_prev_len: word_length(ng[1]),
-                        pp_prev: start.offset_to(ng[0].as_ptr()).unwrap_or(0) as u32,
-                        pp_prev_len: word_length(ng[0]),
+                        current: Offset::new(
+                            start.offset_to(ng[3].as_ptr()).unwrap_or(0) as u32,
+                            word_length(ng[3])),
+                        prev: Offset::new(
+                            start.offset_to(ng[2].as_ptr()).unwrap_or(0) as u32,
+                            word_length(ng[2])),
+                        p_prev: Offset::new(
+                            start.offset_to(ng[1].as_ptr()).unwrap_or(0) as u32,
+                            word_length(ng[1])),
+                        pp_prev: Offset::new(
+                            start.offset_to(ng[0].as_ptr()).unwrap_or(0) as u32,
+                            word_length(ng[0])),
                     });
                 }
             }
