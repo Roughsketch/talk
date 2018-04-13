@@ -2,6 +2,7 @@
 #![feature(test)]
 extern crate test;
 
+extern crate bincode;
 #[macro_use] extern crate clap;
 #[macro_use] extern crate log;
 #[cfg(target_os = "linux")]
@@ -26,12 +27,6 @@ mod ngram;
 
 fn main() {
     pretty_env_logger::init().expect("Could not initialize env logger");
-    info!("Generating ngrams...");
-
-    let book_data = read_books("data/sentences");
-    let books = ngram::BookNgrams::from_books(&book_data);
-
-    info!("Loaded.");
 
     let matches = App::new("Ngram Sentence Generator")
         .version(crate_version!())
@@ -40,7 +35,55 @@ fn main() {
             .short("s")
             .long("server")
             .help("Runs an IPC server that can send generated sentences"))
+        .arg(Arg::with_name("COMPILE")
+            .short("c")
+            .long("compile")
+            .takes_value(true)
+            .help("Compiles a folder of sen files into something that can be deserialized quickly."))
+        .arg(Arg::with_name("LOAD")
+            .short("l")
+            .long("load")
+            .takes_value(true)
+            .help("Loads data from a previously compiled set."))
+        .arg(Arg::with_name("DIRECTORY")
+            .short("d")
+            .long("dir")
+            .takes_value(true)
+            .help("Directory to read sentence data from."))
         .get_matches();
+
+    info!("Generating ngrams...");
+
+    let file = matches
+        .value_of("LOAD")
+        .unwrap_or("")
+        .to_owned();
+
+    if !file.is_empty() {
+        let mut file = File::open(file).unwrap();
+        let mut buffer = Vec::new();
+
+        file.read_to_end(&mut buffer);
+
+        let books = bincode::deserialize::<ngram::BookNgrams>(&buffer).unwrap();
+
+        handle_matches(matches, &books);
+    } else {
+        let book_data = read_books(matches.value_of("LOAD").unwrap_or("data/sentences"));
+        let books = ngram::BookNgrams::from_books(&book_data);
+
+        handle_matches(matches, &books);
+    }
+}
+
+fn handle_matches(matches: clap::ArgMatches, books: &ngram::BookNgrams) {
+    info!("Loaded.");
+
+    if let Some(file) = matches.value_of("COMPILE") {
+        let mut file = File::create(file).unwrap();
+
+        file.write(&bincode::serialize(&books).unwrap());
+    }
 
     if matches.is_present("SERVER") {
         ipc_server(&books);
