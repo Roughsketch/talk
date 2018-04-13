@@ -149,10 +149,10 @@ fn word_length<'a>(slice: &'a str) -> u8 {
     }
 }
 
-#[derive(Debug)]
-pub struct BookNgrams<'a>(Vec<BookNgram<'a>>);
+#[derive(Debug, Deserialize, Serialize)]
+pub struct BookNgrams<'a>(#[serde(borrow)] Vec<BookNgram<'a>>);
 
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct NgramEntry<'a> {
     book: &'a str,
     ngram: NgramData,
