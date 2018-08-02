@@ -4,6 +4,7 @@ version = "0.1.0"
 authors = ["Maiddog <maiddogsrl@gmail.com>"]
 
 [dependencies]
+bincode = "1.0"
 clap = "2.31"
 log = "0.3"
 nanomsg = "0.6"

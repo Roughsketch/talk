@@ -50,6 +50,11 @@ fn main() {
             .long("dir")
             .takes_value(true)
             .help("Directory to read sentence data from."))
+        .arg(Arg::with_name("UNIQUE")
+            .short("u")
+            .long("unique")
+            .takes_value(true)
+            .help("How many unique sources must be taken from to produce a valid output."))
         .get_matches();
 
     info!("Generating ngrams...");
@@ -63,7 +68,10 @@ fn main() {
         let mut file = File::open(file).unwrap();
         let mut buffer = Vec::new();
 
-        file.read_to_end(&mut buffer);
+        if let Err(why) = file.read_to_end(&mut buffer) {
+            error!("Could not read file: {:?}", why);
+            return;
+        }
 
         let books = bincode::deserialize::<ngram::BookNgrams>(&buffer).unwrap();
 
@@ -82,15 +90,23 @@ fn handle_matches(matches: clap::ArgMatches, books: &ngram::BookNgrams) {
     if let Some(file) = matches.value_of("COMPILE") {
         let mut file = File::create(file).unwrap();
 
-        file.write(&bincode::serialize(&books).unwrap());
+        if let Err(why) = file.write(&bincode::serialize(&books).unwrap()) {
+            error!("Could not write file: {:?}", why);
+            return;
+        }
     }
 
+    let unique = {
+        let s = matches.value_of("UNIQUE").unwrap_or("1");
+        s.parse::<usize>().unwrap_or(1)
+    };
+
     if matches.is_present("SERVER") {
-        ipc_server(&books);
+        ipc_server(&books, unique);
     } else {
         let results = loop {
             let r = books.generate();
-            if r.books.len() >= 4 {
+            if r.books.len() >= unique {
                 break r;
             }
         };
@@ -129,12 +145,12 @@ fn read_books<P: AsRef<Path>>(path: P) -> HashMap<String, String> {
     books
 }
 #[cfg(not(target_os = "linux"))]
-fn ipc_server(_books: &ngram::BookNgrams) {
+fn ipc_server(_books: &ngram::BookNgrams, unique: usize) {
     println!("Server is not supported on Windows.");
 }
 
 #[cfg(target_os = "linux")]
-fn ipc_server(books: &ngram::BookNgrams) {
+fn ipc_server(books: &ngram::BookNgrams, unique: usize) {
     let mut socket = nanomsg::Socket::new(nanomsg::Protocol::Rep)
         .expect("Could not create IPC socket.");
     
@@ -153,7 +169,7 @@ fn ipc_server(books: &ngram::BookNgrams) {
         if msg == "gen" {
             let results = loop {
                 let r = books.generate();
-                if r.books.len() >= 4 {
+                if r.books.len() >= unique {
                     break r;
                 }
             };
