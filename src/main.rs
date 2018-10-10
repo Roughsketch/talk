@@ -41,6 +41,9 @@ fn main() {
             .long("unique")
             .takes_value(true)
             .help("How many unique sources must be taken from to produce a valid output."))
+        .arg(Arg::with_name("STATS")
+            .long("stats")
+            .help("Prints stats on the loaded data."))
         .get_matches();
 
     info!("Generating ngrams...");
@@ -87,6 +90,13 @@ fn handle_matches(matches: clap::ArgMatches, books: &ngram::BookNgrams) {
         s.parse::<usize>().unwrap_or(1)
     };
 
+    if matches.is_present("STATS") {
+        let stats = books.stats();
+
+        println!("{:#?}", stats);
+        return;
+    }
+
     if matches.is_present("SERVER") {
         ipc_server(&books, unique);
     } else {
@@ -131,7 +141,7 @@ fn read_books<P: AsRef<Path>>(path: P) -> HashMap<String, String> {
     books
 }
 #[cfg(not(target_os = "linux"))]
-fn ipc_server(_books: &ngram::BookNgrams, unique: usize) {
+fn ipc_server(_books: &ngram::BookNgrams, _unique: usize) {
     println!("Server is not supported on Windows.");
 }
 

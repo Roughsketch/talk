@@ -7,9 +7,9 @@ use rand::{self, Rng};
 use rayon::prelude::*;
 use serde_derive::{Deserialize, Serialize};
 
-const WORD_SEP: &'static str = "";
+const WORD_SEP: &'static str = "\u{2060}";
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, Eq, PartialEq, Ord, PartialOrd)]
 struct Offset(u32);
 
 impl Offset {
@@ -26,7 +26,7 @@ impl Offset {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, Eq, PartialEq, Ord, PartialOrd)]
 pub struct NgramData {
     pp_prev: Offset,
     p_prev: Offset,
@@ -102,14 +102,14 @@ impl <'a> BookNgram<'a> {
                 if !(ng[2] == WORD_SEP && ng[3] == WORD_SEP) {
                     unsafe {
                         data.push(NgramData {
-                            current: ng[3].as_ptr().offset_from(start) as u32,
-                            current_len: word_length(ng[3]),
-                            prev: ng[2].as_ptr().offset_from(start) as u32,
-                            prev_len: word_length(ng[2]),
-                            p_prev: ng[1].as_ptr().offset_from(start) as u32,
-                            p_prev_len: word_length(ng[1]),
-                            pp_prev: ng[0].as_ptr().offset_from(start) as u32,
-                            pp_prev_len: word_length(ng[0]),
+                            current: Offset::new(ng[3].as_ptr().offset_from(start) as u32,
+                                word_length(ng[3])),
+                            prev: Offset::new(ng[2].as_ptr().offset_from(start) as u32,
+                                word_length(ng[2])),
+                            p_prev: Offset::new(ng[1].as_ptr().offset_from(start) as u32,
+                                word_length(ng[1])),
+                            pp_prev: Offset::new(ng[0].as_ptr().offset_from(start) as u32,
+                                word_length(ng[0])),
                         });
                     }
                 }
@@ -151,7 +151,7 @@ fn word_length(slice: &str) -> u8 {
 #[derive(Debug, Deserialize, Serialize)]
 pub struct BookNgrams<'a>(#[serde(borrow)] Vec<BookNgram<'a>>);
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, Eq, PartialEq, Ord, PartialOrd)]
 pub struct NgramEntry<'a> {
     book: &'a str,
     ngram: NgramData,
@@ -210,6 +210,15 @@ impl<'a> FromIterator<BookNgram<'a>> for BookNgrams<'a> {
     }
 }
 
+#[derive(Debug)]
+pub struct Stats {
+    sources: usize,
+    ngrams: usize,
+    unique_words: usize,
+    unique_starts: usize,
+    sentences: usize,
+}
+
 impl<'a> BookNgrams<'a> {
     pub fn new() -> BookNgrams<'a> {
         BookNgrams(Vec::new())
@@ -223,6 +232,47 @@ impl<'a> BookNgrams<'a> {
             .collect::<Vec<BookNgram>>();
         
         BookNgrams(ngrams)
+    }
+
+    pub fn stats(&self) -> Stats {
+        let sources = self.0.len();
+
+        let ngrams = self.0.par_iter().fold(|| 0usize, |total, ngram| {
+            total + ngram.data.len()
+        }).sum();
+
+        let unique_words = self.0.par_iter().fold(|| 0usize, |total, ngram| {
+            let mut set = HashSet::new();
+
+            ngram.content.split_whitespace().for_each(|word| {
+                set.insert(word);
+            });
+
+            total + set.len()
+        }).sum();
+
+        let unique_starts = self.0.par_iter().fold(|| 0usize, |total, ngram| {
+            let starts = ngram.search(WORD_SEP, WORD_SEP, WORD_SEP);
+            let mut set = HashSet::new();
+            
+            starts.iter().for_each(|choice| {
+                set.insert(choice.ngram.current(ngram.content));
+            });
+
+            total + set.len()
+        }).sum();
+
+        let sentences = self.0.par_iter().fold(|| 0usize, |total, ngram| {
+            total + ngram.search(WORD_SEP, WORD_SEP, WORD_SEP).len()
+        }).sum();
+
+        Stats {
+            sources,
+            ngrams,
+            unique_words,
+            unique_starts,
+            sentences,
+        }
     }
 
     pub fn generate(&self) -> Output<'a> {
