@@ -22,7 +22,6 @@ use std::path::Path;
 
 use clap::{App, Arg};
 
-mod bench;
 mod ngram;
 
 fn main() {
