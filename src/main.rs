@@ -1,19 +1,4 @@
 #![feature(ptr_offset_from)]
-#![feature(test)]
-extern crate test;
-
-extern crate bincode;
-#[macro_use] extern crate clap;
-#[macro_use] extern crate log;
-#[cfg(target_os = "linux")]
-extern crate nanomsg;
-extern crate ngrams;
-extern crate pretty_env_logger;
-extern crate rand;
-extern crate rayon;
-extern crate serde;
-#[macro_use] extern crate serde_derive;
-extern crate serde_json;
 
 use std::collections::HashMap;
 use std::fs::File;
@@ -21,6 +6,7 @@ use std::io::{Read, Write};
 use std::path::Path;
 
 use clap::{App, Arg};
+use log::*;
 
 mod ngram;
 
@@ -29,8 +15,8 @@ fn main() {
     info!("Generating ngrams...");
 
     let matches = App::new("Ngram Sentence Generator")
-        .version(crate_version!())
-        .author(crate_authors!())
+        .version(clap::crate_version!())
+        .author(clap::crate_authors!())
         .arg(Arg::with_name("SERVER")
             .short("s")
             .long("server")

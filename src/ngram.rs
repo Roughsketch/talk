@@ -5,6 +5,7 @@ use std::iter::FromIterator;
 use ngrams::Ngrams;
 use rand::{self, Rng};
 use rayon::prelude::*;
+use serde_derive::{Deserialize, Serialize};
 
 const WORD_SEP: &'static str = "";
 
