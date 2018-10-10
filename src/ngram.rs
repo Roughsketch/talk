@@ -6,7 +6,7 @@ use ngrams::Ngrams;
 use rand::{self, Rng};
 use rayon::prelude::*;
 
-const WORD_SEP: &'static str = "\u{2060}";
+const WORD_SEP: &'static str = "";
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 struct Offset(u32);
@@ -99,20 +99,18 @@ impl <'a> BookNgram<'a> {
 
             for ng in ngs {
                 if !(ng[2] == WORD_SEP && ng[3] == WORD_SEP) {
-                    data.push(NgramData {
-                        current: Offset::new(
-                            start.offset_to(ng[3].as_ptr()).unwrap_or(0) as u32,
-                            word_length(ng[3])),
-                        prev: Offset::new(
-                            start.offset_to(ng[2].as_ptr()).unwrap_or(0) as u32,
-                            word_length(ng[2])),
-                        p_prev: Offset::new(
-                            start.offset_to(ng[1].as_ptr()).unwrap_or(0) as u32,
-                            word_length(ng[1])),
-                        pp_prev: Offset::new(
-                            start.offset_to(ng[0].as_ptr()).unwrap_or(0) as u32,
-                            word_length(ng[0])),
-                    });
+                    unsafe {
+                        data.push(NgramData {
+                            current: ng[3].as_ptr().offset_from(start) as u32,
+                            current_len: word_length(ng[3]),
+                            prev: ng[2].as_ptr().offset_from(start) as u32,
+                            prev_len: word_length(ng[2]),
+                            p_prev: ng[1].as_ptr().offset_from(start) as u32,
+                            p_prev_len: word_length(ng[1]),
+                            pp_prev: ng[0].as_ptr().offset_from(start) as u32,
+                            pp_prev_len: word_length(ng[0]),
+                        });
+                    }
                 }
             }
         }
@@ -131,14 +129,14 @@ impl <'a> BookNgram<'a> {
             .map(|entry| {
                 NgramEntry {
                     book: self.book,
-                    ngram: entry.clone()
+                    ngram: entry.clone(),
                 }
             })
             .collect()
     }
 }
 
-fn word_length<'a>(slice: &'a str) -> u8 {
+fn word_length(slice: &str) -> u8 {
     if slice == WORD_SEP {
         0
     } else {
@@ -188,10 +186,10 @@ impl<'a> Output<'a> {
         self.add_book(book);
 
         if self.string.len() > 0 {
-            self.string += " ".into();
+            self.string.push(' ');
         }
 
-        self.string += word.into();
+        self.string.push_str(word);
     }
 
     fn add_book(&mut self, book: &'a str) {
@@ -265,13 +263,9 @@ impl<'a> BookNgrams<'a> {
     }
 
     fn search(&self, pp_prev: &str, p_prev: &str, prev: &str) -> Vec<NgramEntry<'a>> {
-        let mut res = Vec::new();
-
-        for bg in &self.0 {
-            res.append(&mut bg.search(pp_prev, p_prev, prev));
-        }
-
-        res
+        self.0.par_iter().flat_map(|bg| {
+            bg.search(pp_prev, p_prev, prev)
+        }).collect()
     }
 
     fn add(&mut self, item: BookNgram<'a>) {

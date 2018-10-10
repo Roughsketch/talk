@@ -1,4 +1,4 @@
-#![feature(offset_to)]
+#![feature(ptr_offset_from)]
 #![feature(test)]
 extern crate test;
 
@@ -26,7 +26,8 @@ mod bench;
 mod ngram;
 
 fn main() {
-    pretty_env_logger::init().expect("Could not initialize env logger");
+    pretty_env_logger::init();
+    info!("Generating ngrams...");
 
     let matches = App::new("Ngram Sentence Generator")
         .version(crate_version!())
