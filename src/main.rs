@@ -12,7 +12,6 @@ mod ngram;
 
 fn main() {
     pretty_env_logger::init();
-    info!("Generating ngrams...");
 
     let matches = App::new("Ngram Sentence Generator")
         .version(clap::crate_version!())
