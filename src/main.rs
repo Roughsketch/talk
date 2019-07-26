@@ -66,7 +66,7 @@ fn main() {
 
         handle_matches(matches, &books);
     } else {
-        let book_data = read_books(matches.value_of("LOAD").unwrap_or("data/sentences"));
+        let book_data = read_books(matches.value_of("DIRECTORY").unwrap_or("data/sentences"));
         let books = ngram::BookNgrams::from_books(&book_data);
 
         handle_matches(matches, &books);
